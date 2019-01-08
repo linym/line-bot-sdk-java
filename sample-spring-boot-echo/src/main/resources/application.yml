@@ -13,10 +13,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-This is tempalte file for configuration.
-Please copy as `application.yml` and change your value.
+# This is tempalte file for configuration.
+# Please copy as `application.yml` and change your value.
 
-line.bot:
+line.bot: 
   channel-token: 'xc0c8TzarJdFQh5jV4o1HM45P5BN5maK7ZAEnPPatyeuHov7oroEUUYz99eXgI1zCFIG+0aYxeEFgYvTQJvZuykvuwkF6CUclHES6QJrYMtTjrpUu82t55Gql1OFJDUQ/rJrshwdYiez0P/cM3kj7wdB04t89/1O/w1cDnyilFU='
   channel-secret: 'c6d6035500718e4886ccd8062bd7d492'
   handler.path: /callback
