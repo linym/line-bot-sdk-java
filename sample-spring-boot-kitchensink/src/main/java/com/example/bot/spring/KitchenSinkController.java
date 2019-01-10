@@ -17,12 +17,18 @@
 package com.example.bot.spring;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.net.HttpURLConnection;
 import java.net.URI;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -32,6 +38,10 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.fasterxml.jackson.core.JsonParser;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -248,8 +258,33 @@ public class KitchenSinkController {
             throws Exception {
         String text = content.getText();
 
+        Calendar cal = Calendar.getInstance();
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");
+
+        /*
+        //https://www.exchangerate-api.com/java-currency-api
+        // Setting URL
+        String url_str = "https://v3.exchangerate-api.com/bulk/YOUR-API-KEY/USD";
+
+        // Making Request
+        URL url = new URL(url_str);
+        HttpURLConnection request = (HttpURLConnection) url.openConnection();
+        request.connect();
+
+        // Convert to JSON
+        JsonParser jp = new JsonParser();
+        JsonElement root = jp.parse(new InputStreamReader((InputStream) request.getContent()));
+        JsonObject jsonobj = root.getAsJsonObject();
+
+        // Accessing object
+        String req_result = jsonobj.get("result").getAsString();
+
+        // Accessing object
+        String req_result = jsonobj.get("result").getAsString();
+        */
+
         log.info("Got text message from {}: {}", replyToken, text);
-        switch (text) {
+        switch (text.toLowerCase()) {
             case "profile": {
                 String userId = event.getSource().getUserId();
                 if (userId != null) {
@@ -264,7 +299,9 @@ public class KitchenSinkController {
                                 this.reply(
                                         replyToken,
                                         Arrays.asList(new TextMessage(
-                                                              "Display name: " + profile.getDisplayName()),
+                                                        "Display name: " + profile.getDisplayName()),
+                                                      new TextMessage(
+                                                        "User ID: " +  userId),
                                                       new TextMessage("Status message: "
                                                                       + profile.getStatusMessage()))
                                 );
@@ -288,9 +325,9 @@ public class KitchenSinkController {
                 }
                 break;
             }
-            case "confirm": {
+            case "0.0": {
                 ConfirmTemplate confirmTemplate = new ConfirmTemplate(
-                        "Do it?",
+                        "業配洋是白痴ㄇ",
                         new MessageAction("Yes", "Yes!"),
                         new MessageAction("No", "No!")
                 );
@@ -455,11 +492,22 @@ public class KitchenSinkController {
             case "quickreply":
                 this.reply(replyToken, new MessageWithQuickReplySupplier().get());
                 break;
+
+            case "usd":
+                log.info("Store current time: {}", sdf.format(cal.getTime()) );
+                this.replyText(replyToken, "30.7919695 \n" + /*req_result +*/" updated by " + sdf.format(cal.getTime()) );
+                break;
+
+            case "rmb":
+                log.info("Store current time: {}", sdf.format(cal.getTime()) );
+                this.replyText(replyToken, "4.50979185 \n updated by" + sdf.format(cal.getTime()) );
+                break;
+
             default:
                 log.info("Returns echo message {}: {}", replyToken, text);
                 this.replyText(
                         replyToken,
-                        text
+                        "Say people words"
                 );
                 break;
         }

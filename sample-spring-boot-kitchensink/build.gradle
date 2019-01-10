@@ -19,3 +19,7 @@ apply plugin: 'org.springframework.boot'
 dependencies {
     compile project(':line-bot-spring-boot')
 }
+
+dependencies {
+    implementation 'com.google.code.gson:gson:2.8.5'
+}
