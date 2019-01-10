@@ -17,19 +17,15 @@
 package com.example.bot.spring;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
-import java.net.HttpURLConnection;
 import java.net.URI;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDateTime;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
+import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -38,10 +34,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import com.fasterxml.jackson.core.JsonParser;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -494,13 +487,14 @@ public class KitchenSinkController {
                 break;
 
             case "usd":
-                log.info("Store current time: {}", sdf.format(cal.getTime()) );
-                this.replyText(replyToken, "30.7919695 \n" + /*req_result +*/" updated by " + sdf.format(cal.getTime()) );
+                log.info("Store current time: {}", sdf.format(cal.getTime()));
+                this.replyText(replyToken, "30.7919695 \n" + /*req_result +*/" updated by "
+                        + sdf.format(cal.getTime()));
                 break;
 
             case "rmb":
-                log.info("Store current time: {}", sdf.format(cal.getTime()) );
-                this.replyText(replyToken, "4.50979185 \n updated by" + sdf.format(cal.getTime()) );
+                log.info("Store current time: {}", sdf.format(cal.getTime()));
+                this.replyText(replyToken, "4.50979185 \n updated by" + sdf.format(cal.getTime()));
                 break;
 
             default:
