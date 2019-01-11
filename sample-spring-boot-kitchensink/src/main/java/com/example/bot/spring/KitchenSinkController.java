@@ -17,36 +17,39 @@
 package com.example.bot.spring;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.Reader;
 import java.io.UncheckedIOException;
-import java.net.URI;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.util.Arrays;
-import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.google.common.io.ByteStreams;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 import com.linecorp.bot.client.LineMessagingClient;
 import com.linecorp.bot.client.MessageContentResponse;
 import com.linecorp.bot.model.ReplyMessage;
-import com.linecorp.bot.model.action.DatetimePickerAction;
-import com.linecorp.bot.model.action.MessageAction;
-import com.linecorp.bot.model.action.PostbackAction;
-import com.linecorp.bot.model.action.URIAction;
 import com.linecorp.bot.model.event.BeaconEvent;
 import com.linecorp.bot.model.event.Event;
 import com.linecorp.bot.model.event.FollowEvent;
@@ -60,30 +63,13 @@ import com.linecorp.bot.model.event.message.LocationMessageContent;
 import com.linecorp.bot.model.event.message.StickerMessageContent;
 import com.linecorp.bot.model.event.message.TextMessageContent;
 import com.linecorp.bot.model.event.message.VideoMessageContent;
-import com.linecorp.bot.model.event.source.GroupSource;
-import com.linecorp.bot.model.event.source.RoomSource;
-import com.linecorp.bot.model.event.source.Source;
 import com.linecorp.bot.model.message.AudioMessage;
 import com.linecorp.bot.model.message.ImageMessage;
-import com.linecorp.bot.model.message.ImagemapMessage;
 import com.linecorp.bot.model.message.LocationMessage;
 import com.linecorp.bot.model.message.Message;
 import com.linecorp.bot.model.message.StickerMessage;
-import com.linecorp.bot.model.message.TemplateMessage;
 import com.linecorp.bot.model.message.TextMessage;
 import com.linecorp.bot.model.message.VideoMessage;
-import com.linecorp.bot.model.message.imagemap.ImagemapArea;
-import com.linecorp.bot.model.message.imagemap.ImagemapBaseSize;
-import com.linecorp.bot.model.message.imagemap.ImagemapExternalLink;
-import com.linecorp.bot.model.message.imagemap.ImagemapVideo;
-import com.linecorp.bot.model.message.imagemap.MessageImagemapAction;
-import com.linecorp.bot.model.message.imagemap.URIImagemapAction;
-import com.linecorp.bot.model.message.template.ButtonsTemplate;
-import com.linecorp.bot.model.message.template.CarouselColumn;
-import com.linecorp.bot.model.message.template.CarouselTemplate;
-import com.linecorp.bot.model.message.template.ConfirmTemplate;
-import com.linecorp.bot.model.message.template.ImageCarouselColumn;
-import com.linecorp.bot.model.message.template.ImageCarouselTemplate;
 import com.linecorp.bot.model.response.BotApiResponse;
 import com.linecorp.bot.spring.boot.annotation.EventMapping;
 import com.linecorp.bot.spring.boot.annotation.LineMessageHandler;
@@ -251,260 +237,47 @@ public class KitchenSinkController {
             throws Exception {
         String text = content.getText();
 
-        Calendar cal = Calendar.getInstance();
-        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");
+        String[] numberCurrencyCode = splitNumberCurrencyCode(text);
+        double number = numberCurrencyCode[0].length() == 0 ? 1 : Double.parseDouble(numberCurrencyCode[0]);
+        String currencyCode = numberCurrencyCode[1];
+        log.info("NumberCurrencyCode>{}<>{}<", number, currencyCode);
 
-        /*
-        //https://www.exchangerate-api.com/java-currency-api
-        // Setting URL
-        String url_str = "https://v3.exchangerate-api.com/bulk/YOUR-API-KEY/USD";
-
-        // Making Request
-        URL url = new URL(url_str);
-        HttpURLConnection request = (HttpURLConnection) url.openConnection();
-        request.connect();
-
-        // Convert to JSON
-        JsonParser jp = new JsonParser();
-        JsonElement root = jp.parse(new InputStreamReader((InputStream) request.getContent()));
-        JsonObject jsonobj = root.getAsJsonObject();
-
-        // Accessing object
-        String req_result = jsonobj.get("result").getAsString();
-
-        // Accessing object
-        String req_result = jsonobj.get("result").getAsString();
-        */
-
-        log.info("Got text message from {}: {}", replyToken, text);
-        switch (text.toLowerCase()) {
-            case "profile": {
-                String userId = event.getSource().getUserId();
-                if (userId != null) {
-                    lineMessagingClient
-                            .getProfile(userId)
-                            .whenComplete((profile, throwable) -> {
-                                if (throwable != null) {
-                                    this.replyText(replyToken, throwable.getMessage());
-                                    return;
-                                }
-
-                                this.reply(
-                                        replyToken,
-                                        Arrays.asList(new TextMessage(
-                                                        "Display name: " + profile.getDisplayName()),
-                                                      new TextMessage(
-                                                        "User ID: " +  userId),
-                                                      new TextMessage("Status message: "
-                                                                      + profile.getStatusMessage()))
-                                );
-
-                            });
-                } else {
-                    this.replyText(replyToken, "Bot can't use profile API without user ID");
-                }
-                break;
-            }
-            case "bye": {
-                Source source = event.getSource();
-                if (source instanceof GroupSource) {
-                    this.replyText(replyToken, "Leaving group");
-                    lineMessagingClient.leaveGroup(((GroupSource) source).getGroupId()).get();
-                } else if (source instanceof RoomSource) {
-                    this.replyText(replyToken, "Leaving room");
-                    lineMessagingClient.leaveRoom(((RoomSource) source).getRoomId()).get();
-                } else {
-                    this.replyText(replyToken, "Bot can't leave from 1:1 chat");
-                }
-                break;
-            }
-            case "0.0": {
-                ConfirmTemplate confirmTemplate = new ConfirmTemplate(
-                        "業配洋是白痴ㄇ",
-                        new MessageAction("Yes", "Yes!"),
-                        new MessageAction("No", "No!")
-                );
-                TemplateMessage templateMessage = new TemplateMessage("Confirm alt text", confirmTemplate);
-                this.reply(replyToken, templateMessage);
-                break;
-            }
-            case "buttons": {
-                String imageUrl = createUri("/static/buttons/1040.jpg");
-                ButtonsTemplate buttonsTemplate = new ButtonsTemplate(
-                        imageUrl,
-                        "My button sample",
-                        "Hello, my button",
-                        Arrays.asList(
-                                new URIAction("Go to line.me",
-                                              "https://line.me"),
-                                new PostbackAction("Say hello1",
-                                                   "hello こんにちは"),
-                                new PostbackAction("言 hello2",
-                                                   "hello こんにちは",
-                                                   "hello こんにちは"),
-                                new MessageAction("Say message",
-                                                  "Rice=米")
-                        ));
-                TemplateMessage templateMessage = new TemplateMessage("Button alt text", buttonsTemplate);
-                this.reply(replyToken, templateMessage);
-                break;
-            }
-            case "carousel": {
-                String imageUrl = createUri("/static/buttons/1040.jpg");
-                CarouselTemplate carouselTemplate = new CarouselTemplate(
-                        Arrays.asList(
-                                new CarouselColumn(imageUrl, "hoge", "fuga", Arrays.asList(
-                                        new URIAction("Go to line.me",
-                                                      "https://line.me"),
-                                        new URIAction("Go to line.me",
-                                                      "https://line.me"),
-                                        new PostbackAction("Say hello1",
-                                                           "hello こんにちは")
-                                )),
-                                new CarouselColumn(imageUrl, "hoge", "fuga", Arrays.asList(
-                                        new PostbackAction("言 hello2",
-                                                           "hello こんにちは",
-                                                           "hello こんにちは"),
-                                        new PostbackAction("言 hello2",
-                                                           "hello こんにちは",
-                                                           "hello こんにちは"),
-                                        new MessageAction("Say message",
-                                                          "Rice=米")
-                                )),
-                                new CarouselColumn(imageUrl, "Datetime Picker",
-                                                   "Please select a date, time or datetime", Arrays.asList(
-                                        new DatetimePickerAction("Datetime",
-                                                                 "action=sel",
-                                                                 "datetime",
-                                                                 "2017-06-18T06:15",
-                                                                 "2100-12-31T23:59",
-                                                                 "1900-01-01T00:00"),
-                                        new DatetimePickerAction("Date",
-                                                                 "action=sel&only=date",
-                                                                 "date",
-                                                                 "2017-06-18",
-                                                                 "2100-12-31",
-                                                                 "1900-01-01"),
-                                        new DatetimePickerAction("Time",
-                                                                 "action=sel&only=time",
-                                                                 "time",
-                                                                 "06:15",
-                                                                 "23:59",
-                                                                 "00:00")
-                                ))
-                        ));
-                TemplateMessage templateMessage = new TemplateMessage("Carousel alt text", carouselTemplate);
-                this.reply(replyToken, templateMessage);
-                break;
-            }
-            case "image_carousel": {
-                String imageUrl = createUri("/static/buttons/1040.jpg");
-                ImageCarouselTemplate imageCarouselTemplate = new ImageCarouselTemplate(
-                        Arrays.asList(
-                                new ImageCarouselColumn(imageUrl,
-                                                        new URIAction("Goto line.me",
-                                                                      "https://line.me")
-                                ),
-                                new ImageCarouselColumn(imageUrl,
-                                                        new MessageAction("Say message",
-                                                                          "Rice=米")
-                                ),
-                                new ImageCarouselColumn(imageUrl,
-                                                        new PostbackAction("言 hello2",
-                                                                           "hello こんにちは",
-                                                                           "hello こんにちは")
-                                )
-                        ));
-                TemplateMessage templateMessage = new TemplateMessage("ImageCarousel alt text",
-                                                                      imageCarouselTemplate);
-                this.reply(replyToken, templateMessage);
-                break;
-            }
-            case "imagemap":
-                this.reply(replyToken, new ImagemapMessage(
-                        createUri("/static/rich"),
-                        "This is alt text",
-                        new ImagemapBaseSize(1040, 1040),
-                        Arrays.asList(
-                                new URIImagemapAction(
-                                        "https://store.line.me/family/manga/en",
-                                        new ImagemapArea(
-                                                0, 0, 520, 520
-                                        )
-                                ),
-                                new URIImagemapAction(
-                                        "https://store.line.me/family/music/en",
-                                        new ImagemapArea(
-                                                520, 0, 520, 520
-                                        )
-                                ),
-                                new URIImagemapAction(
-                                        "https://store.line.me/family/play/en",
-                                        new ImagemapArea(
-                                                0, 520, 520, 520
-                                        )
-                                ),
-                                new MessageImagemapAction(
-                                        "URANAI!",
-                                        new ImagemapArea(
-                                                520, 520, 520, 520
-                                        )
-                                )
-                        )
-                ));
-                break;
-            case "imagemap_video":
-                this.reply(replyToken, ImagemapMessage
-                        .builder()
-                        .baseUrl(createUri("/static/imagemap_video"))
-                        .altText("This is an imagemap with video")
-                        .baseSize(new ImagemapBaseSize(722, 1040))
-                        .video(
-                                ImagemapVideo.builder()
-                                        .originalContentUrl(URI.create(
-                                                createUri("/static/imagemap_video/originalContent.mp4")))
-                                        .previewImageUrl(URI.create(
-                                                createUri("/static/imagemap_video/previewImage.jpg")))
-                                        .area(new ImagemapArea(40, 46, 952, 536))
-                                        .externalLink(
-                                                new ImagemapExternalLink(
-                                                        URI.create("https://example.com/see_more.html"), "See More")
-                                        )
-                                        .build()
-                        )
-                        .actions(Stream.of(
-                                new MessageImagemapAction(
-                                        "NIXIE CLOCK",
-                                        new ImagemapArea(260, 600, 450, 86)
-                                )).collect(Collectors.toList()))
-                        .build());
-                break;
-            case "flex":
-                this.reply(replyToken, new ExampleFlexMessageSupplier().get());
-                break;
-            case "quickreply":
-                this.reply(replyToken, new MessageWithQuickReplySupplier().get());
-                break;
-
-            case "usd":
-                log.info("Store current time: {}", sdf.format(cal.getTime()));
-                this.replyText(replyToken, "30.7919695 \n" + /*req_result +*/" updated by "
-                        + sdf.format(cal.getTime()));
-                break;
-
-            case "rmb":
-                log.info("Store current time: {}", sdf.format(cal.getTime()));
-                this.replyText(replyToken, "4.50979185 \n updated by" + sdf.format(cal.getTime()));
-                break;
-
-            default:
-                log.info("Returns echo message {}: {}", replyToken, text);
-                this.replyText(
-                        replyToken,
-                        "Say people words"
-                );
-                break;
+        if (checkCurrencyCode(currencyCode)) {
+            Rate myRate = rateService(currencyCode);
+            this.replyText(replyToken, Double.parseDouble(myRate.rate) * number + "\nUpdated by "
+                    + myRate.updateTime + "\n"
+                    + myRate.sourceMessage);
+        } else {
+            String message = "Please check your Currency Code";
+            this.replyText(replyToken, message);
         }
+    }
+
+    private String[] splitNumberCurrencyCode(String text) {
+        StringBuffer currencyCode = new StringBuffer();
+        StringBuffer number = new StringBuffer();
+        for (int i = 0; i < text.length(); i++) {
+            if (Character.isDigit(text.charAt(i)) || text.charAt(i) == '.') {
+                number.append(text.charAt(i));
+            } else if (text.charAt(i) != ' ') {
+                currencyCode.append(text.charAt(i));
+            }
+        }
+        return new String[] {number.toString(), currencyCode.toString()};
+    }
+
+    private boolean checkCurrencyCode(String text) throws Exception  {
+        //Load default rate json file
+        Gson gson = new GsonBuilder().create();
+        Reader reader = new InputStreamReader(
+                KitchenSinkController.class.getResourceAsStream("/static/default.json"),
+                "UTF-8");
+        JsonObject jsonObj = gson.fromJson(reader, JsonObject.class);
+
+        //Parse KEY rates
+        JsonElement jsonElement = jsonObj.getAsJsonObject().get("rates").getAsJsonObject()
+                .get(text.toUpperCase());
+        return jsonElement != null;
     }
 
     private static String createUri(String path) {
@@ -547,6 +320,66 @@ public class KitchenSinkController {
         return new DownloadedContent(
                 tempFile,
                 createUri("/downloaded/" + tempFile.getFileName()));
+    }
+
+    private static long lastAccessTime;
+
+    public static void setLastAccessTime(long l) {
+        KitchenSinkController.lastAccessTime = l;
+    }
+
+    private static JsonObject jsonDefaultObj;
+
+    private static Rate rateService(String text) throws Exception {
+
+        JsonObject jsonObj;
+        Rate myRate = new Rate();
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");
+        sdf.setTimeZone(TimeZone.getTimeZone("Asia/Taipei"));
+
+        long currentAccessTime = System.currentTimeMillis();
+        log.info("currentAccessTime:{}", currentAccessTime);
+        log.info("lastAccessTime:{}", lastAccessTime);
+
+        if (currentAccessTime / 1000 - lastAccessTime > 3600) {
+            lastAccessTime = currentAccessTime;
+
+            // Making Request
+            String urlStr = "http://data.fixer.io/api/latest?access_key=efe087eb1fcfa771cde3bdb8ecc34e38&format=1";
+            URL url = new URL(urlStr);
+            HttpURLConnection request = (HttpURLConnection) url.openConnection();
+            request.connect();
+
+            // Convert to JSON
+            JsonParser jp = new JsonParser();
+            JsonElement root = jp.parse(new InputStreamReader((InputStream) request.getContent(), "utf-8"));
+            jsonObj = root.getAsJsonObject();
+
+            String reqResult = jsonObj.get("success").getAsString();
+            String currentTime = sdf.format(new Date(currentAccessTime));
+            if ("true".equals(reqResult)) {
+                jsonDefaultObj = jsonObj;
+                myRate.sourceMessage = "Update successfully by " + currentTime;
+            } else {
+                //Read from cached rate
+                jsonObj = jsonDefaultObj;
+                myRate.sourceMessage = "Update failed by " + currentTime;
+            }
+        } else {
+            jsonObj = jsonDefaultObj;
+            myRate.sourceMessage = "Use cached data";
+        }
+
+        myRate.updateTime = sdf.format(new Date(Long.parseLong(jsonObj.get("timestamp")
+                .getAsString()) * 1000));
+
+        Double baseRate = Double.parseDouble(jsonObj.getAsJsonObject().get("rates").getAsJsonObject()
+                .get("TWD").getAsString());
+        Double currencyRate = Double.parseDouble(jsonObj.getAsJsonObject().get("rates").getAsJsonObject()
+                .get(text.toUpperCase()).getAsString());
+
+        myRate.rate = String.valueOf(baseRate / currencyRate);
+        return myRate;
     }
 
     @Value
