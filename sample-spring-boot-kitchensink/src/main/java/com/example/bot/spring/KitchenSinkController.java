@@ -17,22 +17,16 @@
 package com.example.bot.spring;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.Reader;
 import java.io.UncheckedIOException;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
-import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
@@ -45,7 +39,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
 import com.linecorp.bot.client.LineMessagingClient;
 import com.linecorp.bot.client.MessageContentResponse;
@@ -83,6 +76,9 @@ import lombok.extern.slf4j.Slf4j;
 public class KitchenSinkController {
     @Autowired
     private LineMessagingClient lineMessagingClient;
+
+    @Autowired
+    public RateService rateService;
 
     @EventMapping
     public void handleTextMessageEvent(MessageEvent<TextMessageContent> event) throws Exception {
@@ -243,7 +239,7 @@ public class KitchenSinkController {
         log.info("NumberCurrencyCode>{}<>{}<", number, currencyCode);
 
         if (checkCurrencyCode(currencyCode)) {
-            Rate myRate = rateService(currencyCode);
+            Rate myRate = rateService.rateCalculator(currencyCode);
             this.replyText(replyToken, Double.parseDouble(myRate.rate) * number + "\nUpdated by "
                     + myRate.updateTime + "\n"
                     + myRate.sourceMessage);
@@ -259,7 +255,7 @@ public class KitchenSinkController {
         for (int i = 0; i < text.length(); i++) {
             if (Character.isDigit(text.charAt(i)) || text.charAt(i) == '.') {
                 number.append(text.charAt(i));
-            } else if (text.charAt(i) != ' ') {
+            } else if (Character.isAlphabetic(text.charAt(i))) {
                 currencyCode.append(text.charAt(i));
             }
         }
@@ -320,66 +316,6 @@ public class KitchenSinkController {
         return new DownloadedContent(
                 tempFile,
                 createUri("/downloaded/" + tempFile.getFileName()));
-    }
-
-    private static long lastAccessTime;
-
-    public static void setLastAccessTime(long l) {
-        KitchenSinkController.lastAccessTime = l;
-    }
-
-    private static JsonObject jsonDefaultObj;
-
-    private static Rate rateService(String text) throws Exception {
-
-        JsonObject jsonObj;
-        Rate myRate = new Rate();
-        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");
-        sdf.setTimeZone(TimeZone.getTimeZone("Asia/Taipei"));
-
-        long currentAccessTime = System.currentTimeMillis();
-        log.info("currentAccessTime:{}", currentAccessTime);
-        log.info("lastAccessTime:{}", lastAccessTime);
-
-        if (currentAccessTime / 1000 - lastAccessTime > 3600) {
-            lastAccessTime = currentAccessTime;
-
-            // Making Request
-            String urlStr = "http://data.fixer.io/api/latest?access_key=efe087eb1fcfa771cde3bdb8ecc34e38&format=1";
-            URL url = new URL(urlStr);
-            HttpURLConnection request = (HttpURLConnection) url.openConnection();
-            request.connect();
-
-            // Convert to JSON
-            JsonParser jp = new JsonParser();
-            JsonElement root = jp.parse(new InputStreamReader((InputStream) request.getContent(), "utf-8"));
-            jsonObj = root.getAsJsonObject();
-
-            String reqResult = jsonObj.get("success").getAsString();
-            String currentTime = sdf.format(new Date(currentAccessTime));
-            if ("true".equals(reqResult)) {
-                jsonDefaultObj = jsonObj;
-                myRate.sourceMessage = "Update successfully by " + currentTime;
-            } else {
-                //Read from cached rate
-                jsonObj = jsonDefaultObj;
-                myRate.sourceMessage = "Update failed by " + currentTime;
-            }
-        } else {
-            jsonObj = jsonDefaultObj;
-            myRate.sourceMessage = "Use cached data";
-        }
-
-        myRate.updateTime = sdf.format(new Date(Long.parseLong(jsonObj.get("timestamp")
-                .getAsString()) * 1000));
-
-        Double baseRate = Double.parseDouble(jsonObj.getAsJsonObject().get("rates").getAsJsonObject()
-                .get("TWD").getAsString());
-        Double currencyRate = Double.parseDouble(jsonObj.getAsJsonObject().get("rates").getAsJsonObject()
-                .get(text.toUpperCase()).getAsString());
-
-        myRate.rate = String.valueOf(baseRate / currencyRate);
-        return myRate;
     }
 
     @Value
