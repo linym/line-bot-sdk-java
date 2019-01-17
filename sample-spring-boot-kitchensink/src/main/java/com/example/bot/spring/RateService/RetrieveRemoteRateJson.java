@@ -14,10 +14,10 @@
  * under the License.
  */
 
-package com.example.bot.spring;
+package com.example.bot.spring.RateService;
 
-public class Rate {
-    public String sourceMessage;
-    public String updateTime;
-    public String rate;
+import com.google.gson.JsonObject;
+
+public interface RetrieveRemoteRateJson {
+    JsonObject retrieveRemoteRateJson() throws Exception;
 }
