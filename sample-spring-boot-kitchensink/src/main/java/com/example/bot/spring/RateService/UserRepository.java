@@ -14,13 +14,14 @@
  * under the License.
  */
 
-apply plugin: 'org.springframework.boot'
+package com.example.bot.spring.RateService;
 
-dependencies {
-    compile project(':line-bot-spring-boot')
-}
+import org.springframework.data.mongodb.repository.MongoRepository;
 
-dependencies {
-    implementation 'com.google.code.gson:gson:2.8.5'
-    compile("org.springframework.boot:spring-boot-starter-data-mongodb")
+public interface UserRepository extends MongoRepository<User, String> {
+
+    User findByUserId(String userId);
+
+    boolean existsByUserId(String userId);
+    //public List<Customer> findByLastName(String lastName);
 }

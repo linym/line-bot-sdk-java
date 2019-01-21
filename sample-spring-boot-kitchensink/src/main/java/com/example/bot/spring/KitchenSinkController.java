@@ -36,6 +36,8 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.example.bot.spring.RateService.Rate;
 import com.example.bot.spring.RateService.RateService;
+import com.example.bot.spring.RateService.User;
+import com.example.bot.spring.RateService.UserRepository;
 import com.google.common.io.ByteStreams;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -231,23 +233,72 @@ public class KitchenSinkController {
         );
     }
 
+    private int setFavorateCurrency(String text, String userId) throws Exception {
+        String textOnlyLetter = text.replaceAll("[^a-zA-Z]", "").toUpperCase();
+        if (textOnlyLetter.length() >= 3 && "SET".equals(textOnlyLetter.substring(0,3))) {
+            String favoriteCurrency;
+            if (textOnlyLetter.length() == 6) {
+                favoriteCurrency = textOnlyLetter.substring(3,6);
+                if (checkCurrencyCode(favoriteCurrency)) {
+                    User user = repository.findByUserId(userId);
+                    user.nowCurrency = favoriteCurrency;
+                    repository.save(user);
+                    return 0;
+                } else {
+                    return -1;
+                }
+            } else {
+                return -1;
+            }
+        }
+        return 1;
+    }
+
+    @Autowired
+    private UserRepository repository;
+
     private void handleTextContent(String replyToken, Event event, TextMessageContent content)
             throws Exception {
         String text = content.getText();
 
-        String[] numberCurrencyCode = splitNumberCurrencyCode(text);
-        double number = numberCurrencyCode[0].length() == 0 ? 1 : Double.parseDouble(numberCurrencyCode[0]);
-        String currencyCode = numberCurrencyCode[1];
-        log.info("NumberCurrencyCode>{}<>{}<", number, currencyCode);
+        //fetch User ID to withdraw favorite currency
+        String userId = event.getSource().getUserId();
+        if (!repository.existsByUserId(userId)) {
+            repository.save(new User(userId, "TWD", null));
+        }
 
-        if (checkCurrencyCode(currencyCode)) {
-            Rate myRate = rateService.rateCalculator(currencyCode);
-            this.replyText(replyToken, Double.parseDouble(myRate.rate) * number + "\nUpdated by "
-                    + myRate.updateTime + "\n"
-                    + myRate.sourceMessage);
+        if (setFavorateCurrency(text, userId) == 0) {
+            this.replyText(replyToken, "Set default currency successfully");
+        } else if (setFavorateCurrency(text, userId) == -1) {
+            this.replyText(replyToken, "Please check your Currency Code");
         } else {
-            String message = "Please check your Currency Code";
-            this.replyText(replyToken, message);
+
+            String[] numberCurrencyCode = splitNumberCurrencyCode(text);
+            double number = numberCurrencyCode[0].length() == 0 ? 1 : Double.parseDouble(numberCurrencyCode[0]);
+
+            String currencyCode = "";
+            if (numberCurrencyCode[1].length() == 0) {
+                String defaultCurrency = repository.findByUserId(userId).nowCurrency;
+                if (defaultCurrency == null) {
+                    this.replyText(replyToken, "Please set your default currency\nE.g. SET USD");
+                } else {
+                    currencyCode = defaultCurrency;
+                }
+            } else {
+                currencyCode = numberCurrencyCode[1];
+            }
+            log.info("NumberCurrencyCode>{}<>{}<", number, currencyCode);
+
+            if (checkCurrencyCode(currencyCode)) {
+                Rate myRate = rateService.rateCalculator(currencyCode);
+                this.replyText(replyToken, currencyCode.toUpperCase() + " " + number + " = " + "TWD "
+                        + String.format("%.2f", Double.parseDouble(myRate.rate) * number) + "\n"
+                        + "Updated by " + myRate.updateTime);
+                log.info("sourceMessage:{}", myRate.sourceMessage);
+            } else {
+                String message = "Please check your Currency Code";
+                this.replyText(replyToken, message);
+            }
         }
     }
 
