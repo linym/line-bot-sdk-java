@@ -233,15 +233,15 @@ public class KitchenSinkController {
         );
     }
 
-    private int setFavorateCurrency(String text, String userId) throws Exception {
+    private int setDefaultCurrency(String text, String userId) throws Exception {
         String textOnlyLetter = text.replaceAll("[^a-zA-Z]", "").toUpperCase();
         if (textOnlyLetter.length() >= 3 && "SET".equals(textOnlyLetter.substring(0,3))) {
-            String favoriteCurrency;
+            String defaultCurrency;
             if (textOnlyLetter.length() == 6) {
-                favoriteCurrency = textOnlyLetter.substring(3,6);
-                if (checkCurrencyCode(favoriteCurrency)) {
+                defaultCurrency = textOnlyLetter.substring(3,6);
+                if (checkCurrencyCode(defaultCurrency)) {
                     User user = repository.findByUserId(userId);
-                    user.nowCurrency = favoriteCurrency;
+                    user.nowCurrency = defaultCurrency;
                     repository.save(user);
                     return 0;
                 } else {
@@ -267,9 +267,9 @@ public class KitchenSinkController {
             repository.save(new User(userId, "TWD", null));
         }
 
-        if (setFavorateCurrency(text, userId) == 0) {
+        if (setDefaultCurrency(text, userId) == 0) {
             this.replyText(replyToken, "Set default currency successfully");
-        } else if (setFavorateCurrency(text, userId) == -1) {
+        } else if (setDefaultCurrency(text, userId) == -1) {
             this.replyText(replyToken, "Please check your Currency Code");
         } else {
 
