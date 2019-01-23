@@ -26,6 +26,7 @@ spring:
     mongodb:
       uri: mongodb://universeking:universe77@ds161162.mlab.com:61162/rate_service_linebot
 
+
 # To remove Client wire logs. Please comment out following lines.
 # See: https://docs.spring.io/spring-boot/docs/current/reference/html/howto-logging.html
 #
