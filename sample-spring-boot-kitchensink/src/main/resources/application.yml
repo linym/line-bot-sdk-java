@@ -24,7 +24,7 @@ line.bot:
 spring:
   data:
     mongodb:
-      uri: mongodb+srv://universeking:universe77@rate-service-linebot.ofrm5.mongodb.net/rate_service_linebot?retryWrites=true&w=majority
+      uri: mongodb+srv://universeking:${MONGO_PASSWORD}@rate-service-linebot.ofrm5.mongodb.net/rate_service_linebot?retryWrites=true&w=majority
 
 
 # To remove Client wire logs. Please comment out following lines.
